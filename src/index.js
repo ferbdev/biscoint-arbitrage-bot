@@ -2,12 +2,15 @@ import Biscoint from 'biscoint-api-node';
 import _ from 'lodash';
 import player from 'play-sound';
 import config from './config.js';
+const { Webhook, MessageBuilder } = require('discord-webhook-node');
 
 // read the configurations
 let {
   apiKey, apiSecret, amount, amountCurrency, initialBuy, minProfitPercent, intervalSeconds, playSound, simulation,
-  executeMissedSecondLeg,
+  executeMissedSecondLeg, discordWebHook,
 } = config;
+
+const hook = discordWebHook != null ? new Webhook(discordWebHook) : null;
 
 // global variables
 let bc, lastTrade = 0, isQuote, balances;
@@ -143,10 +146,14 @@ async function tradeCycle() {
         lastTrade = Date.now();
 
         handleMessage(`[${tradeCycleCount}] Success, profit: + ${profit.toFixed(3)}% (${finishedAt - startedAt} ms)`);
+
+        sendDiscordMessage(`[${tradeCycleCount}] Success, profit: + ${profit.toFixed(3)}% (${finishedAt - startedAt} ms)`, true);
         play();
       } catch (error) {
         handleMessage(`[${tradeCycleCount}] Error on confirm offer: ${error.error}`, 'error');
         console.error(error);
+
+        sendDiscordMessage(`[${tradeCycleCount}] Error on confirm offer: ${error.error}`, false);
 
         if (firstLeg && !secondLeg) {
           // probably only one leg of the arbitrage got executed, we have to accept loss and rebalance funds.
@@ -234,6 +241,18 @@ const play = () => {
     });
   }
 };
+
+const sendDiscordMessage = async (message, success) => {
+  if (discordWebHook != null){
+    const embed = new MessageBuilder()
+    .setTitle('Profit')
+    .addField('Message: ', message, true)
+    .setColor(success ? '#1dcf11' : '#ed0000')
+    .setTimestamp();
+
+    hook.send(embed);
+  }
+}
 
 // performs initialization, checks and starts the trading cycles.
 async function start() {
