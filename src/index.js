@@ -43,34 +43,44 @@ const init = () => {
 
 // Checks that the balance necessary for the first operation is sufficient for the configured 'amount'.
 const checkBalances = async () => {
-  balances = await bc.balance();
-  const { BRL, BTC } = balances;
+  try{
+    balances = await bc.balance();
+    const { BRL, BTC } = balances;
 
-  handleMessage(`Balances:  BRL: ${BRL} - BTC: ${BTC} `);
+    handleMessage(`Balances:  BRL: ${BRL} - BTC: ${BTC} `);
 
-  const nAmount = Number(amount);
-  let amountBalance = isQuote ? BRL : BTC;
-  if (nAmount > Number(amountBalance)) {
-    handleMessage(
-      `Amount ${amount} is greater than the user's ${isQuote ? 'BRL' : 'BTC'} balance of ${amountBalance}`,
-      'error',
-      true,
-    );
+    const nAmount = Number(amount);
+    let amountBalance = isQuote ? BRL : BTC;
+    if (nAmount > Number(amountBalance)) {
+      handleMessage(
+        `Amount ${amount} is greater than the user's ${isQuote ? 'BRL' : 'BTC'} balance of ${amountBalance}`,
+        'error',
+        true,
+      );
+    }
+  }
+  catch(err){
+    console.log(err);
   }
 };
 
 // Checks that the configured interval is within the allowed rate limit.
 const checkInterval = async () => {
-  const { endpoints } = await bc.meta();
-  const { windowMs, maxRequests } = endpoints.offer.post.rateLimit;
-  handleMessage(`Offer Rate limits: ${maxRequests} request per ${windowMs}ms.`);
-  let minInterval = 2.0 * parseFloat(windowMs) / parseFloat(maxRequests) / 1000.0;
+  try{
+    const { endpoints } = await bc.meta();
+    const { windowMs, maxRequests } = endpoints.offer.post.rateLimit;
+    handleMessage(`Offer Rate limits: ${maxRequests} request per ${windowMs}ms.`);
+    let minInterval = 2.0 * parseFloat(windowMs) / parseFloat(maxRequests) / 1000.0;
 
-  if (!intervalSeconds) {
-    intervalSeconds = minInterval;
-    handleMessage(`Setting interval to ${intervalSeconds}s`);
-  } else if (intervalSeconds < minInterval) {
-    handleMessage(`Interval too small (${intervalSeconds}s). Must be higher than ${minInterval.toFixed(1)}s`, 'error', true);
+    if (!intervalSeconds) {
+      intervalSeconds = minInterval;
+      handleMessage(`Setting interval to ${intervalSeconds}s`);
+    } else if (intervalSeconds < minInterval) {
+      handleMessage(`Interval too small (${intervalSeconds}s). Must be higher than ${minInterval.toFixed(1)}s`, 'error', true);
+    }
+  }
+  catch(err){
+    console.log(err);
   }
 };
 
@@ -188,6 +198,7 @@ async function tradeCycle() {
               `[${tradeCycleCount}] Fatal error. Unable to recover from incomplete arbitrage. Exiting.`, 'fatal',
             );
             await sleep(500);
+            sendDiscordMessage('Fatal error. Unable to recover from incomplete arbitrage. Exiting.', false);
             process.exit(1);
           }
         }
